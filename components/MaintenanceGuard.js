@@ -42,7 +42,8 @@ export default function MaintenanceGuard({ children }) {
     return () => clearInterval(timer)
   }, [settings])
 
-  if (!isLoaded) return null
+  // Don't block page rendering while loading settings
+  // Show maintenance screen only after confirmed settings are loaded
 
   const isAdmin = user?.role === 'admin'
   const isLoginPage = router.pathname === '/login'
