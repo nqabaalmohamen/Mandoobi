@@ -3,23 +3,10 @@ import { useAuth } from '../../services/auth'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useState, useEffect } from 'react'
 import ClientSidebar from '../../components/ClientSidebar'
+import { getData, setData } from '../../services/db'
 
 const STORAGE_KEY = 'mandoobi_users'
-
-const syncToServer = async (key, value) => {
-  try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value })
-    })
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
-  } catch (e) {
-    console.error('Failed to sync:', e)
-  }
-}
 
 export default function ClientProfile() {
   const { user, signOut } = useAuth()
@@ -48,8 +35,7 @@ export default function ClientProfile() {
     if (!user) return
     const fetchOrders = async () => {
       try {
-        const res = await fetch('/api/storage?key=mandoobi_orders')
-        const orders = await res.json()
+        const orders = await getData('mandoobi_orders')
         if (Array.isArray(orders)) {
           setOrdersCount(orders.filter(o => o.clientId === user.uid || o.clientId === user.id).length)
         }
@@ -71,13 +57,12 @@ export default function ClientProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
+      const users = await getData(STORAGE_KEY)
       const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
 
       if (index !== -1) {
         users[index] = { ...users[index], name: profile.name, phone: profile.phone, address: profile.address }
-        await syncToServer(STORAGE_KEY, users)
+        await setData(STORAGE_KEY, users)
         localStorage.setItem('mandoobi_user', JSON.stringify(users[index]))
         setMsg({ text: 'تم تحديث الملف الشخصي بنجاح ✅', type: 'success' })
         setTimeout(() => setMsg({ text: '', type: '' }), 3000)
@@ -102,13 +87,12 @@ export default function ClientProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
+      const users = await getData(STORAGE_KEY)
       const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
 
       if (index !== -1) {
         users[index].password = newPassword
-        await syncToServer(STORAGE_KEY, users)
+        await setData(STORAGE_KEY, users)
         setNewPassword('')
         setConfirmPassword('')
         setMsg({ text: 'تم تغيير كلمة المرور بنجاح ✅', type: 'success' })

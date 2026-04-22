@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
+import { getData, setData } from '../services/db'
 
 export default function Support() {
   const router = useRouter()
@@ -26,25 +27,17 @@ export default function Support() {
 
     try {
       const supportKey = 'mandoobi_support_requests'
-      const res = await fetch(`/api/storage?key=${supportKey}`)
-      const existingRequests = await res.json()
+      const existingRequests = await getData(supportKey)
       
       const newRequest = {
         ...formData,
-        id: Date.now(),
+        id: Date.now().toString(),
         createdAt: new Date().toISOString(),
         status: 'pending'
       }
       
       const updatedRequests = [newRequest, ...existingRequests]
-      
-      await fetch('/api/storage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: supportKey, value: updatedRequests })
-      })
-      
-      window.dispatchEvent(new Event('mandoobi_data_changed'))
+      await setData(supportKey, updatedRequests)
       setSubmitted(true)
     } catch (err) {
       console.error('Failed to submit support request:', err)

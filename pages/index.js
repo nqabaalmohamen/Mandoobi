@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '../services/auth'
+import { getData } from '../services/db'
 
 const services = [
   /*
@@ -256,10 +257,8 @@ function StatsSection() {
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const res = await fetch('/api/storage?key=mandoobi_users')
-        const users = await res.json()
-        const resOrders = await fetch('/api/storage?key=mandoobi_orders')
-        const orders = await resOrders.json()
+        const users = await getData('mandoobi_users')
+        const orders = await getData('mandoobi_orders')
 
         setCounts({
           orders: Array.isArray(orders) ? orders.length : 0,

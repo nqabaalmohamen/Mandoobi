@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useAuth, subscribeToData } from '../../services/auth'
 import { subscribeToOrders } from '../../services/orders'
+import { setData } from '../../services/db'
 import Link from 'next/link'
 import Head from 'next/head'
 
@@ -27,14 +28,9 @@ const AVAILABLE_PERMISSIONS = [
 
 const syncToServer = async (key, value) => {
   try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value })
-    })
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
+    await setData(key, value)
   } catch (e) {
-    console.error(`Failed to sync ${key} to server:`, e)
+    console.error(`Failed to sync ${key} to Firestore:`, e)
   }
 }
 

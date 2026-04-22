@@ -4,22 +4,10 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import CourierSidebar from '../../components/CourierSidebar'
+import { getData, setData } from '../../services/db'
 
 const STORAGE_KEY = 'mandoobi_users'
 const COURIERS_KEY = 'mandoobi_couriers'
-
-const syncToServer = async (key, value) => {
-  try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value })
-    })
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
-  } catch (e) {
-    console.error('Failed to sync:', e)
-  }
-}
 
 export default function CourierProfile() {
   const { user, signOut } = useAuth()
@@ -51,8 +39,7 @@ export default function CourierProfile() {
 
     const fetchData = async () => {
       try {
-        const courierRes = await fetch('/api/storage?key=' + COURIERS_KEY)
-        const couriers = await courierRes.json()
+        const couriers = await getData(COURIERS_KEY)
         const myCourierData = couriers.find(c => c.userId === user.uid || c.userId === user.id)
         setCourierData(myCourierData)
 
@@ -61,8 +48,7 @@ export default function CourierProfile() {
           setProfile(prev => ({ ...prev, nationalId: prev.nationalId || myCourierData.nationalId }))
         }
 
-        const ordersRes = await fetch('/api/storage?key=mandoobi_orders')
-        const orders = await ordersRes.json()
+        const orders = await getData('mandoobi_orders')
         const myOrders = orders.filter(o => o.courierId === user.uid || o.courierId === user.id)
         setStats({
           totalOrders: myOrders.length,
@@ -90,22 +76,20 @@ export default function CourierProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
+      const users = await getData(STORAGE_KEY)
       const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
 
       if (index !== -1) {
         users[index] = { ...users[index], name: profile.name, phone: profile.phone, vehicleType: profile.vehicleType, nationalId: profile.nationalId }
-        await syncToServer(STORAGE_KEY, users)
+        await setData(STORAGE_KEY, users)
         localStorage.setItem('mandoobi_user', JSON.stringify(users[index]))
 
         if (courierData) {
-          const courierRes = await fetch('/api/storage?key=' + COURIERS_KEY)
-          const couriers = await courierRes.json()
+          const couriers = await getData(COURIERS_KEY)
           const cIndex = couriers.findIndex(c => c.userId === user.uid || c.userId === user.id)
           if (cIndex !== -1) {
             couriers[cIndex] = { ...couriers[cIndex], vehicleType: profile.vehicleType, nationalId: profile.nationalId }
-            await syncToServer(COURIERS_KEY, couriers)
+            await setData(COURIERS_KEY, couriers)
           }
         }
 
@@ -132,13 +116,12 @@ export default function CourierProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
+      const users = await getData(STORAGE_KEY)
       const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
 
       if (index !== -1) {
         users[index].password = newPassword
-        await syncToServer(STORAGE_KEY, users)
+        await setData(STORAGE_KEY, users)
         setNewPassword('')
         setConfirmPassword('')
         setMsg({ text: 'تم تغيير كلمة المرور بنجاح ✅', type: 'success' })
