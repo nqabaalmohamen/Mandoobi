@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'export',
+  basePath: '/Mandoobi',
+  assetPrefix: '/Mandoobi',
   images: {
     unoptimized: true,
   },
