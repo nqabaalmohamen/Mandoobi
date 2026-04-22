@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { auth, db } from './firebase'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import { getData, setData } from './db'
 
 const AuthContext = createContext()
 
