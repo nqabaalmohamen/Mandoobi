@@ -42,8 +42,28 @@ const services = [
 ]
 
 
+import { useRouter } from 'next/router'
+
 export default function Home() {
   const { user } = useAuth() || {}
+  const router = useRouter()
+
+  useEffect(() => {
+    if (user) {
+      const dest = user.role === 'admin' ? '/dashboard/admin' : 
+                   user.role === 'courier' ? '/dashboard/courier' : 
+                   '/dashboard/client'
+      router.replace(dest)
+    }
+  }, [user, router])
+
+  // Prevent flash of home content if user is logged in
+  if (user === undefined || user) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )
+
   return (
     <div className="bg-white" dir="rtl">
       <section className="relative overflow-hidden pt-8 pb-16 sm:pt-16 sm:pb-32">
