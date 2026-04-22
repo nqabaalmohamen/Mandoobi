@@ -26,7 +26,7 @@ export default function NavBar() {
               <Link href="/" className="flex items-center gap-3 sm:gap-6 group">
                 <div className="w-12 h-12 sm:w-20 sm:h-20 relative">
                   <Image 
-                    src="/logo.png" 
+                    src="/Mandoobi/logo.png" 
                     alt="Mandoobi logo" 
                     layout="fill" 
                     objectFit="contain" 

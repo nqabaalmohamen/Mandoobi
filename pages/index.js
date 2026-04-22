@@ -202,7 +202,7 @@ export default function Home() {
             <div className="flex flex-col items-center md:items-start order-1 md:order-2">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 relative">
-                  <Image src="/logo.png" alt="Mandoobi logo" layout="fill" objectFit="contain" />
+                  <Image src="/Mandoobi/logo.png" alt="Mandoobi logo" layout="fill" objectFit="contain" />
                 </div>
                 <span className="text-xl sm:text-2xl font-black tracking-tighter">Mandoobi <span className="text-[#FF6A00]">مندو بي</span></span>
               </div>
