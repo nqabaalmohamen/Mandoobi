@@ -41,10 +41,17 @@ const services = [
   */
 ]
 
+import { db } from '../services/firebase'
+
 export default function Home() {
   const { user } = useAuth() || {}
   return (
     <div className="bg-white" dir="rtl">
+      {!db && (
+        <div className="bg-blue-600 text-white text-center py-2 px-4 text-xs sm:text-sm font-bold relative z-[200]">
+          ⚠️ الموقع يعمل حالياً في "وضع التجربة". البيانات تُحفظ في متصفحك فقط ولن تظهر على الأجهزة الأخرى حتى يتم ربط Firebase.
+        </div>
+      )}
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-8 pb-16 sm:pt-16 sm:pb-32">
         <div className="max-w-[100%] mx-auto px-4 sm:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">

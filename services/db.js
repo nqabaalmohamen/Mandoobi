@@ -24,16 +24,31 @@ const COLLECTION_MAP = {
 }
 
 export async function getData(key) {
-  if (!db) return []
   const colName = COLLECTION_MAP[key] || key
   
+  if (!db) {
+    // LocalStorage Fallback
+    const localData = localStorage.getItem(key)
+    if (localData) return JSON.parse(localData)
+    
+    if (key === 'mandoobi_settings') {
+      return {
+        commission: 15, 
+        commissionType: 'percentage', 
+        baseFare: 35,
+        maintenanceMode: false
+      }
+    }
+    return []
+  }
+
   // Special case for settings (usually a single doc)
   if (key === 'mandoobi_settings') {
     const snap = await getDoc(doc(db, 'config', 'settings'))
     return snap.exists() ? snap.data() : {
       commission: 15, 
       commissionType: 'percentage', 
-      baseFare: 35, // Updated to 35 as per previous requirements
+      baseFare: 35,
       maintenanceMode: false
     }
   }
@@ -44,8 +59,14 @@ export async function getData(key) {
 }
 
 export async function setData(key, value) {
-  if (!db) return
   const colName = COLLECTION_MAP[key] || key
+
+  if (!db) {
+    // LocalStorage Fallback
+    localStorage.setItem(key, JSON.stringify(value))
+    window.dispatchEvent(new Event('mandoobi_data_changed'))
+    return
+  }
 
   // Special case for settings
   if (key === 'mandoobi_settings') {
@@ -54,9 +75,7 @@ export async function setData(key, value) {
     return
   }
 
-  // If value is an array (old system), we need to handle it carefully.
-  // In a real app, we'd update individual docs. 
-  // For the fastest "immediate" fix, we'll map array elements to docs by ID.
+  // If value is an array, update docs.
   if (Array.isArray(value)) {
     for (const item of value) {
       const id = item.id || item.uid || item.phone || Date.now().toString()
