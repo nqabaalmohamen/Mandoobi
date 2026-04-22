@@ -70,7 +70,7 @@ export default function AdminDashboard() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [data, setData] = useState({
+  const [data, setAdminData] = useState({
     users: [],
     orders: [],
     couriers: [],
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
     settings: { 
       commission: 15, 
       commissionType: 'percentage', 
-      baseFare: 20,
+      baseFare: 35,
       maintenanceMode: false,
       maintenanceEndTime: null
     }
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
     if (!user || user.role !== 'admin') return
 
     const unsubUsers = subscribeToData(STORAGE_KEYS.USERS, (users) => {
-      setData(prev => ({ ...prev, users }))
+      setAdminData(prev => ({ ...prev, users }))
     })
 
     const unsubOrders = subscribeToOrders((orders) => {
@@ -181,11 +181,11 @@ export default function AdminDashboard() {
         }
       }
       prevOrdersRef.current = orders
-      setData(prev => ({ ...prev, orders }))
+      setAdminData(prev => ({ ...prev, orders }))
     })
 
     const unsubCouriers = subscribeToData(STORAGE_KEYS.COURIERS, (couriers) => {
-      setData(prev => ({ ...prev, couriers }))
+      setAdminData(prev => ({ ...prev, couriers }))
       const pendingCount = couriers.filter(c => c.status === 'pending').length
       if (pendingCount > 0) {
         addNotify(`يوجد ${pendingCount} مندوب بانتظار المراجعة`, 'warning')
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
 
     const unsubSettings = subscribeToData(STORAGE_KEYS.SETTINGS, (settings) => {
       if (settings && !Array.isArray(settings)) {
-        setData(prev => {
+        setAdminData(prev => {
           // Only update if current tab is NOT settings to avoid overwriting user input
           if (activeTab === 'settings') return prev;
           return { ...prev, settings };
@@ -203,11 +203,11 @@ export default function AdminDashboard() {
     })
 
     const unsubSupport = subscribeToData(STORAGE_KEYS.SUPPORT, (support) => {
-      setData(prev => ({ ...prev, support }))
+      setAdminData(prev => ({ ...prev, support }))
     })
 
     const unsubPasswordRequests = subscribeToData(STORAGE_KEYS.PASSWORD_REQUESTS, (passwordRequests) => {
-      setData(prev => ({ ...prev, passwordRequests }))
+      setAdminData(prev => ({ ...prev, passwordRequests }))
     })
 
     return () => {

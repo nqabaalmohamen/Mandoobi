@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useAuth, subscribeToData } from '../services/auth'
+import { useAuth } from '../services/auth'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useRouter } from 'next/router'
+import { subscribeToKey } from '../services/db'
 
 export default function MaintenanceGuard({ children }) {
   const { user } = useAuth()
@@ -11,7 +12,7 @@ export default function MaintenanceGuard({ children }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
-    const unsub = subscribeToData('mandoobi_settings', (data) => {
+    const unsub = subscribeToKey('mandoobi_settings', (data) => {
       setSettings(data)
       setIsLoaded(true)
     })
