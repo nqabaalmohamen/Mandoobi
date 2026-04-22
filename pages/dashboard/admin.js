@@ -11,7 +11,7 @@ const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2869/286
 const STORAGE_KEYS = {
   COURIERS: 'mandoobi_couriers',
   ORDERS: 'mandoobi_orders',
-  USERS: 'mandoobi_users',
+  USERS: 'profiles',
   SETTINGS: 'mandoobi_settings',
   SUPPORT: 'mandoobi_support_requests',
   PASSWORD_REQUESTS: 'mandoobi_password_requests'

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { getData, setData, subscribeToKey } from './db'
+import { supabase } from './supabase'
 
 const AuthContext = createContext()
 
@@ -14,102 +14,100 @@ function useProvideAuth() {
   const [user, setUser] = useState(undefined)
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const stored = localStorage.getItem('mandoobi_user')
-    setUser(stored ? JSON.parse(stored) : null)
-
-    const handler = () => {
-      const updated = localStorage.getItem('mandoobi_user')
-      setUser(updated ? JSON.parse(updated) : null)
+    // Check active sessions and sets the user
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        
+        setUser({ uid: session.user.id, id: session.user.id, ...profile })
+      } else {
+        setUser(null)
+      }
     }
-    window.addEventListener('mandoobi_data_changed', handler)
-    return () => window.removeEventListener('mandoobi_data_changed', handler)
+
+    getSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        setUser({ uid: session.user.id, id: session.user.id, ...profile })
+      } else {
+        setUser(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signIn = async (phone, password) => {
     const cleanPhone = phone?.trim()
     const cleanPassword = password?.trim()
 
-    // Admin login
-    if (cleanPhone === 'admin' && cleanPassword === 'admin') {
-      const adminUser = {
-        uid: 'admin_123',
-        id: 'admin_123',
-        name: 'مدير الموقع',
-        phone: 'admin',
-        role: 'admin',
-        isAdmin: true
-      }
-      localStorage.setItem('mandoobi_user', JSON.stringify(adminUser))
-      setUser(adminUser)
-      window.dispatchEvent(new Event('mandoobi_data_changed'))
-      return
-    }
+    // Handle dummy email for phone-based login in Supabase
+    const email = cleanPhone === 'admin' ? 'admin@mandoobi.local' : `${cleanPhone}@mandoobi.local`
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: cleanPassword,
+    })
 
-    // Regular user login
-    const users = getData('mandoobi_users')
-    const u = users.find(x => x.phone === cleanPhone && x.password === cleanPassword)
-    if (!u) throw new Error('رقم الهاتف أو كلمة المرور غير صحيحة')
-
-    const payload = { uid: u.id, ...u }
-    localStorage.setItem('mandoobi_user', JSON.stringify(payload))
-    setUser(payload)
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
+    if (error) throw error
+    return data
   }
 
   const signUp = async ({ name, phone, address, password, role = 'client', courierData }) => {
-    const users = getData('mandoobi_users')
+    const email = `${phone}@mandoobi.local`
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, phone, role }
+      }
+    })
 
-    // Check for duplicate phone
-    if (users.find(u => u.phone === phone)) {
-      throw new Error('رقم الهاتف مسجل مسبقاً')
-    }
+    if (error) throw error
 
-    const id = `user_${Date.now()}`
-    const newUser = { id, name, phone, address, password, role, createdAt: new Date().toISOString() }
-    users.push(newUser)
-    setData('mandoobi_users', users)
+    // Profile is created via Trigger in Supabase or manually here
+    // For simplicity, we do it manually here if the trigger isn't set up
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert([
+        { id: data.user.id, name, phone, address, role, createdAt: new Date().toISOString() }
+      ])
+    
+    if (profileError) console.error("Profile insert error:", profileError)
 
     if (role === 'courier' && courierData) {
-      const couriers = getData('mandoobi_couriers')
-      couriers.push({ id: `courier_${Date.now()}`, userId: id, name, phone, ...courierData, status: 'pending', createdAt: new Date().toISOString() })
-      setData('mandoobi_couriers', couriers)
+      await supabase
+        .from('couriers')
+        .insert([
+          { userId: data.user.id, ...courierData, status: 'pending' }
+        ])
     }
 
-    const payload = { uid: id, id, name, phone, address, role }
-    localStorage.setItem('mandoobi_user', JSON.stringify(payload))
-    setUser(payload)
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
+    return data
   }
 
-  const signOutUser = () => {
-    localStorage.removeItem('mandoobi_user')
+  const signOutUser = async () => {
+    await supabase.auth.signOut()
     setUser(null)
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
-  }
-
-  const guestLogin = (guestName = 'زائر', guestPhone = '') => {
-    const id = `guest_${Date.now()}`
-    const payload = { uid: id, id, name: guestName, phone: guestPhone, role: 'guest' }
-    localStorage.setItem('mandoobi_user', JSON.stringify(payload))
-    setUser(payload)
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
   }
 
   const changePassword = async (userId, newPassword) => {
-    const users = getData('mandoobi_users')
-    const idx = users.findIndex(u => u.id === userId || u.uid === userId)
-    if (idx !== -1) {
-      users[idx].password = newPassword
-      setData('mandoobi_users', users)
-    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
     return true
   }
 
-  return { user, signIn, signUp, signOut: signOutUser, guestLogin, changePassword }
-}
-
-// Subscribe to any localStorage key with live updates
-export function subscribeToData(key, callback) {
-  return subscribeToKey(key, callback)
+  return { user, signIn, signUp, signOut: signOutUser, changePassword }
 }

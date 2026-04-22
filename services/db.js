@@ -1,58 +1,54 @@
-// ===================================
-// Database Service - localStorage Only
-// ===================================
+import { supabase } from './supabase'
 
-const DEFAULTS = {
-  mandoobi_settings: {
-    commission: 15,
-    commissionType: 'percentage',
-    baseFare: 35,
-    maintenanceMode: false,
-    maintenanceEndTime: null
-  },
-  mandoobi_users: [],
-  mandoobi_orders: [],
-  mandoobi_couriers: [],
-  mandoobi_support_requests: []
+export async function getData(table) {
+  const { data, error } = await supabase.from(table).select('*')
+  if (error) {
+    console.error(`Error fetching ${table}:`, error)
+    return []
+  }
+  return data
 }
 
-function emit() {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
+export async function setData(table, payload) {
+  // If payload is an array (like in our old local system), we might need to handle it differently
+  // but for Supabase, we usually insert or update rows.
+  // This helper is kept for compatibility with existing admin.js calls.
+  console.log(`Syncing ${table} to Supabase...`)
+  // For 'mandoobi_settings', we use a special table or row
+  if (table === 'mandoobi_settings') {
+    const { error } = await supabase.from('settings').upsert({ id: 1, ...payload })
+    if (error) console.error("Settings sync error:", error)
   }
 }
 
-export function getData(key) {
-  if (typeof window === 'undefined') return DEFAULTS[key] ?? []
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) return JSON.parse(raw)
-    return DEFAULTS[key] ?? []
-  } catch {
-    return DEFAULTS[key] ?? []
-  }
-}
-
-export function setData(key, value) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-    emit()
-  } catch (e) {
-    console.error('setData error:', e)
-  }
-}
-
-export function subscribeToKey(key, callback) {
-  // immediate call
-  callback(getData(key))
-  const handler = () => callback(getData(key))
-  if (typeof window !== 'undefined') {
-    window.addEventListener('mandoobi_data_changed', handler)
-  }
-  return () => {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('mandoobi_data_changed', handler)
+export function subscribeToKey(table, callback) {
+  // Initial fetch
+  supabase.from(table).select('*').then(({ data }) => {
+    if (data) {
+      // If it's settings, return the first row as an object
+      if (table === 'settings' || table === 'mandoobi_settings') {
+        callback(data[0] || {})
+      } else {
+        callback(data)
+      }
     }
-  }
+  })
+
+  // Realtime
+  const sub = supabase
+    .channel(`${table}_sync`)
+    .on('postgres_changes', { event: '*', table: table }, () => {
+      supabase.from(table).select('*').then(({ data }) => {
+        if (data) {
+          if (table === 'settings' || table === 'mandoobi_settings') {
+            callback(data[0] || {})
+          } else {
+            callback(data)
+          }
+        }
+      })
+    })
+    .subscribe()
+
+  return () => supabase.removeChannel(sub)
 }

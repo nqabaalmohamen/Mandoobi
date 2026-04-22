@@ -1,69 +1,99 @@
-import { getData, setData, subscribeToKey } from './db'
+import { supabase } from './supabase'
 
 export async function createOrder(payload) {
-  const orders = getData('mandoobi_orders')
-  const id = `order_${Date.now()}`
-  const newOrder = {
-    ...payload,
-    id,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-  orders.unshift(newOrder)
-  setData('mandoobi_orders', orders)
-  return id
+  const { data, error } = await supabase
+    .from('orders')
+    .insert([{
+      ...payload,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }])
+    .select()
+
+  if (error) throw error
+  return data[0].id
 }
 
 export function subscribeToOrders(callback) {
-  return subscribeToKey('mandoobi_orders', callback)
+  // Initial fetch
+  supabase.from('orders').select('*').order('createdAt', { ascending: false }).then(({ data }) => {
+    if (data) callback(data)
+  })
+
+  // Realtime subscription
+  const sub = supabase
+    .channel('orders_changes')
+    .on('postgres_changes', { event: '*', table: 'orders' }, () => {
+      supabase.from('orders').select('*').order('createdAt', { ascending: false }).then(({ data }) => {
+        if (data) callback(data)
+      })
+    })
+    .subscribe()
+
+  return () => supabase.removeChannel(sub)
 }
 
 export function subscribeToOrder(id, callback) {
-  const handler = (orders) => {
-    const order = orders.find(o => o.id === id)
-    if (order) callback(order)
-  }
-  return subscribeToKey('mandoobi_orders', handler)
+  supabase.from('orders').select('*').eq('id', id).single().then(({ data }) => {
+    if (data) callback(data)
+  })
+
+  const sub = supabase
+    .channel(`order_${id}`)
+    .on('postgres_changes', { event: 'UPDATE', table: 'orders', filter: `id=eq.${id}` }, (payload) => {
+      callback(payload.new)
+    })
+    .subscribe()
+
+  return () => supabase.removeChannel(sub)
 }
 
 export async function getOrder(id) {
-  const orders = getData('mandoobi_orders')
-  const order = orders.find(o => o.id === id)
-  if (!order) throw new Error('الطلب غير موجود')
-  return order
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data
 }
 
 export async function updateOrderStatus(id, status, courierId = null, extraData = {}) {
-  const orders = getData('mandoobi_orders')
-  const idx = orders.findIndex(o => o.id === id)
-  if (idx === -1) throw new Error('الطلب غير موجود')
-
   const timeData = {}
   if (status === 'accepted') timeData.acceptedAt = new Date().toISOString()
   if (status === 'on_way') timeData.pickedUpAt = new Date().toISOString()
   if (status === 'completed') timeData.completedAt = new Date().toISOString()
 
-  orders[idx] = {
-    ...orders[idx],
-    status,
-    ...(courierId ? { courierId } : {}),
-    updatedAt: new Date().toISOString(),
-    ...timeData,
-    ...extraData
-  }
-  setData('mandoobi_orders', orders)
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status,
+      ...(courierId ? { courierId } : {}),
+      updatedAt: new Date().toISOString(),
+      ...timeData,
+      ...extraData
+    })
+    .eq('id', id)
+
+  if (error) throw error
 }
 
 export async function updateOrder(id, payload) {
-  const orders = getData('mandoobi_orders')
-  const idx = orders.findIndex(o => o.id === id)
-  if (idx === -1) throw new Error('الطلب غير موجود')
-  orders[idx] = { ...orders[idx], ...payload, updatedAt: new Date().toISOString() }
-  setData('mandoobi_orders', orders)
+  const { error } = await supabase
+    .from('orders')
+    .update({ ...payload, updatedAt: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw error
 }
 
 export async function deleteOrder(id) {
-  const orders = getData('mandoobi_orders')
-  setData('mandoobi_orders', orders.filter(o => o.id !== id))
+  const { error } = await supabase
+    .from('orders')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
 }
