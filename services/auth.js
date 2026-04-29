@@ -54,7 +54,7 @@ function useProvideAuth() {
 
     // Transparent mapping
     const isEmail = cleanInput.includes('@')
-    const email = isEmail ? cleanInput : `${cleanInput}@mandoobi.com`
+    const email = isEmail ? cleanInput : `${cleanInput}@example.com`
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -71,7 +71,7 @@ function useProvideAuth() {
   }
 
   const signUp = async ({ name, phone, address, password, role = 'client', courierData }) => {
-    const email = `${phone}@mandoobi.com`
+    const email = `${phone}@example.com`
     
     const { data, error } = await supabase.auth.signUp({
       email,
