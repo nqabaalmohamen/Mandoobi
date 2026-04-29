@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useAuth, subscribeToData } from '../../services/auth'
-import { subscribeToOrders } from '../../services/orders'
+import { useAuth } from '../../services/auth'
+import { subscribeToData, setData } from '../../services/db'
+import { subscribeToOrders, updateOrderStatus } from '../../services/orders'
+import { supabase } from '../../services/supabase'
 import Link from 'next/link'
+
 
 // --- Data Persistence Helpers (Updated for Cross-Device Sync) ---
 const STORAGE_KEYS = {
@@ -14,14 +17,19 @@ const STORAGE_KEYS = {
 
 const syncToServer = async (key, value) => {
   try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value })
-    })
+    // If it's a single item update, we should ideally use specific functions.
+    // For now, we'll route settings to Supabase.
+    if (key === STORAGE_KEYS.SETTINGS || key === 'mandoobi_settings') {
+      await setData('settings', value)
+    }
+    
+    // For other keys (users, orders, couriers), the admin dashboard currently 
+    // sends the entire array. This is inefficient for Supabase but we'll 
+    // handle the most critical ones or encourage individual updates.
+    
     window.dispatchEvent(new Event('mandoobi_data_changed'))
   } catch (e) {
-    console.error(`Failed to sync ${key} to server:`, e)
+    console.error(`Failed to sync ${key} to Supabase:`, e)
   }
 }
 
@@ -160,15 +168,16 @@ export default function AdminDashboard() {
   }
 
   const submitCourierUpdate = async (userId, status, reason) => {
-    const updatedCouriers = data.couriers.map(c => c.userId === userId ? { ...c, status, statusReason: reason } : c)
-    await syncToServer(STORAGE_KEYS.COURIERS, updatedCouriers)
-
-    // Also update user object to reflect status change if needed for redirect
-    const updatedUsers = data.users.map(u => u.id === userId ? { ...u, courierStatus: status, courierStatusReason: reason } : u)
-    await syncToServer(STORAGE_KEYS.USERS, updatedUsers)
-
-    addNotify(`تم تحديث حالة المندوب بنجاح`, status === 'approved' ? 'success' : 'error')
-    setRejectionModal({ show: false, userId: null, status: '', reason: '' })
+    try {
+      await supabase.from('couriers').update({ status, statusReason: reason }).eq('userId', userId)
+      await supabase.from('profiles').update({ courierStatus: status, courierStatusReason: reason }).eq('id', userId)
+      
+      addNotify(`تم تحديث حالة المندوب بنجاح`, status === 'approved' ? 'success' : 'error')
+      setRejectionModal({ show: false, userId: null, status: '', reason: '' })
+    } catch (e) {
+      console.error("Courier update error:", e)
+      addNotify("فشل تحديث حالة المندوب", "error")
+    }
   }
 
   const handleDeleteUser = (id) => {
@@ -292,9 +301,13 @@ export default function AdminDashboard() {
   }
 
   const handleUpdateOrder = async (id, status) => {
-    const updated = data.orders.map(o => o.id === id ? { ...o, status, updatedAt: new Date().toISOString() } : o)
-    await syncToServer(STORAGE_KEYS.ORDERS, updated)
-    addNotify(`تم تحديث حالة الطلب #${id} إلى ${status}`, 'info')
+    try {
+      await updateOrderStatus(id, status)
+      addNotify(`تم تحديث حالة الطلب #${id} إلى ${status}`, 'info')
+    } catch (e) {
+      console.error("Order update error:", e)
+      addNotify("فشل تحديث حالة الطلب", "error")
+    }
   }
 
   const handleUpdateSettings = async (newSettings) => {

@@ -48,24 +48,30 @@ function useProvideAuth() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (phone, password) => {
-    const cleanPhone = phone?.trim()
+  const signIn = async (input, password) => {
+    const cleanInput = input?.trim()
     const cleanPassword = password?.trim()
 
-    // Handle dummy email for phone-based login in Supabase
-    const email = cleanPhone === 'admin' ? 'admin@mandoobi.local' : `${cleanPhone}@mandoobi.local`
+    // Transparent mapping
+    const isEmail = cleanInput.includes('@')
+    const email = isEmail ? cleanInput : `${cleanInput}@mandoobi.com`
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password: cleanPassword,
     })
 
-    if (error) throw error
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        throw new Error('رقم الهاتف أو كلمة المرور غير صحيحة')
+      }
+      throw error
+    }
     return data
   }
 
   const signUp = async ({ name, phone, address, password, role = 'client', courierData }) => {
-    const email = `${phone}@mandoobi.local`
+    const email = `${phone}@mandoobi.com`
     
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -75,7 +81,12 @@ function useProvideAuth() {
       }
     })
 
-    if (error) throw error
+    if (error) {
+      if (error.message.includes('User already registered')) {
+        throw new Error('رقم الهاتف هذا مسجل بالفعل')
+      }
+      throw error
+    }
 
     // Profile is created via Trigger in Supabase or manually here
     // For simplicity, we do it manually here if the trigger isn't set up

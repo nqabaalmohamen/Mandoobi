@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { subscribeToOrder, deleteOrder, createOrder } from '../../services/orders'
 import { useAuth } from '../../services/auth'
+import { supabase } from '../../services/supabase'
 import Link from 'next/link'
+
 import Head from 'next/head'
 
 export default function OrderPage(){
@@ -140,19 +142,10 @@ export default function OrderPage(){
       // Fetch Client Info
       if (o.clientType === 'user' && o.clientId) {
         try {
-          const users = JSON.parse(localStorage.getItem('mandoobi_users') || '[]')
-          const found = users.find(u => u.id === o.clientId)
-          if (found) {
-            setClientInfo(found)
-          } else {
-            fetch(`/api/storage?key=mandoobi_users`)
-              .then(res => res.json())
-              .then(users => {
-                const found = users.find(u => u.id === o.clientId)
-                if (found) setClientInfo(found)
-              })
-              .catch(err => console.error('Failed to fetch client info:', err))
-          }
+          // Fetch Client Info from Supabase
+          supabase.from('profiles').select('*').eq('id', o.clientId).single().then(({ data: found }) => {
+            if (found) setClientInfo(found)
+          }).catch(err => console.error('Failed to fetch client info:', err))
         } catch (e) {
           console.error('Error fetching client info:', e)
         }
@@ -161,19 +154,10 @@ export default function OrderPage(){
       // Fetch Courier Info
       if (o.courierId) {
         try {
-          const users = JSON.parse(localStorage.getItem('mandoobi_users') || '[]')
-          const found = users.find(u => u.id === o.courierId)
-          if (found) {
-            setCourierInfo(found)
-          } else {
-            fetch(`/api/storage?key=mandoobi_users`)
-              .then(res => res.json())
-              .then(users => {
-                const found = users.find(u => u.id === o.courierId)
-                if (found) setCourierInfo(found)
-              })
-              .catch(err => console.error('Failed to fetch courier info:', err))
-          }
+          // Fetch Courier Info from Supabase
+          supabase.from('profiles').select('*').eq('id', o.courierId).single().then(({ data: found }) => {
+            if (found) setCourierInfo(found)
+          }).catch(err => console.error('Failed to fetch courier info:', err))
         } catch (e) {
           console.error('Error fetching courier info:', e)
         }
@@ -194,15 +178,10 @@ export default function OrderPage(){
      if (user === undefined) return // still loading
 
      try {
-       const localSettings = JSON.parse(localStorage.getItem('mandoobi_settings'))
-       if (localSettings) setSettings(localSettings)
-       
-       fetch('/api/storage?key=mandoobi_settings')
-         .then(res => res.json())
-         .then(s => {
-           if (s && !Array.isArray(s)) setSettings(s)
-         })
-         .catch(e => console.error('Failed to fetch settings:', e))
+       // Fetch settings from Supabase
+       supabase.from('settings').select('*').eq('id', 1).single().then(({ data: s }) => {
+         if (s && !Array.isArray(s)) setSettings(s)
+       }).catch(e => console.error('Failed to fetch settings:', e))
      } catch (e) {
        console.error('Settings error:', e)
      }

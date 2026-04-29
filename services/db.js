@@ -1,32 +1,56 @@
 import { supabase } from './supabase'
 
+const tableMap = {
+  'mandoobi_users': 'profiles',
+  'mandoobi_orders': 'orders',
+  'mandoobi_couriers': 'couriers',
+  'mandoobi_settings': 'settings',
+  'mandoobi_support_requests': 'support_requests'
+}
+
 export async function getData(table) {
-  const { data, error } = await supabase.from(table).select('*')
+  const dbTable = tableMap[table] || table
+  const { data, error } = await supabase.from(dbTable).select('*')
   if (error) {
-    console.error(`Error fetching ${table}:`, error)
+    console.error(`Error fetching ${dbTable}:`, error)
     return []
   }
   return data
 }
 
+
 export async function setData(table, payload) {
-  // If payload is an array (like in our old local system), we might need to handle it differently
-  // but for Supabase, we usually insert or update rows.
-  // This helper is kept for compatibility with existing admin.js calls.
   console.log(`Syncing ${table} to Supabase...`)
-  // For 'mandoobi_settings', we use a special table or row
-  if (table === 'mandoobi_settings') {
+  
+  // For 'mandoobi_settings', we use a special row
+  if (table === 'mandoobi_settings' || table === 'settings') {
     const { error } = await supabase.from('settings').upsert({ id: 1, ...payload })
     if (error) console.error("Settings sync error:", error)
+    return
   }
+
+  // If payload is an array (legacy logic), we might need to sync row by row or handle differently.
+  // However, most modern calls should pass individual objects or we should handle table sync.
+  // For simplicity in this migration, we'll log it.
+  console.warn(`Direct array sync for ${table} is not fully supported via setData. Individual table services should be used.`)
 }
 
-export function subscribeToKey(table, callback) {
+export function subscribeToData(table, callback) {
+  // Map internal storage keys to Supabase table names if necessary
+  const tableMap = {
+    'mandoobi_users': 'profiles',
+    'mandoobi_orders': 'orders',
+    'mandoobi_couriers': 'couriers',
+    'mandoobi_settings': 'settings',
+    'mandoobi_support_requests': 'support_requests'
+  }
+
+  const dbTable = tableMap[table] || table
+
   // Initial fetch
-  supabase.from(table).select('*').then(({ data }) => {
+  supabase.from(dbTable).select('*').then(({ data }) => {
     if (data) {
-      // If it's settings, return the first row as an object
-      if (table === 'settings' || table === 'mandoobi_settings') {
+      if (dbTable === 'settings') {
         callback(data[0] || {})
       } else {
         callback(data)
@@ -36,11 +60,11 @@ export function subscribeToKey(table, callback) {
 
   // Realtime
   const sub = supabase
-    .channel(`${table}_sync`)
-    .on('postgres_changes', { event: '*', table: table }, () => {
-      supabase.from(table).select('*').then(({ data }) => {
+    .channel(`${dbTable}_sync`)
+    .on('postgres_changes', { event: '*', table: dbTable }, () => {
+      supabase.from(dbTable).select('*').then(({ data }) => {
         if (data) {
-          if (table === 'settings' || table === 'mandoobi_settings') {
+          if (dbTable === 'settings') {
             callback(data[0] || {})
           } else {
             callback(data)
@@ -52,3 +76,8 @@ export function subscribeToKey(table, callback) {
 
   return () => supabase.removeChannel(sub)
 }
+
+export function subscribeToKey(table, callback) {
+  return subscribeToData(table, callback)
+}
+

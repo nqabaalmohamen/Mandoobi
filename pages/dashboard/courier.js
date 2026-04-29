@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/router'
-import { useAuth, subscribeToData } from '../../services/auth'
+import { useAuth } from '../../services/auth'
+import { subscribeToData } from '../../services/db'
 import { subscribeToOrders, updateOrderStatus } from '../../services/orders'
+
 import Link from 'next/link'
 import Head from 'next/head'
 import CourierSidebar from '../../components/CourierSidebar'

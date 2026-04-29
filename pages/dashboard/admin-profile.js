@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../services/auth'
+import { supabase } from '../../services/supabase'
 import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -14,18 +15,7 @@ const PERMISSIONS = [
   { id: 'passwords', label: 'طلبات كلمات المرور' }
 ]
 
-const syncToServer = async (key, value) => {
-  try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key, value })
-    })
-    window.dispatchEvent(new Event('mandoobi_data_changed'))
-  } catch (e) {
-    console.error('Failed to sync:', e)
-  }
-}
+// syncToServer is no longer needed with Supabase
 
 export default function AdminProfile() {
   const { user, signOut } = useAuth()
@@ -57,19 +47,20 @@ export default function AdminProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
-      const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ name: profile.name, phone: profile.phone, permissions: profile.permissions })
+        .eq('id', user.id)
 
-      if (index !== -1) {
-        users[index] = { ...users[index], name: profile.name, phone: profile.phone, permissions: profile.permissions }
-        await syncToServer(STORAGE_KEY, users)
-        localStorage.setItem('mandoobi_user', JSON.stringify(users[index]))
+      if (!updateError) {
         setMsg({ text: 'تم تحديث الملف الشخصي بنجاح ✅', type: 'success' })
         setTimeout(() => setMsg({ text: '', type: '' }), 3000)
+      } else {
+        throw updateError
       }
     } catch (err) {
-      setMsg({ text: 'فشل في تحديث الملف الشخصي', type: 'error' })
+      console.error('Update error:', err)
+      setMsg({ text: 'فشل في تحديث الملف الشخصي: ' + err.message, type: 'error' })
     }
   }
 
@@ -88,20 +79,19 @@ export default function AdminProfile() {
     }
 
     try {
-      const res = await fetch('/api/storage?key=' + STORAGE_KEY)
-      const users = await res.json()
-      const index = users.findIndex(u => u.id === user.uid || u.id === user.id)
-
-      if (index !== -1) {
-        users[index].password = newPassword
-        await syncToServer(STORAGE_KEY, users)
+      const { error: pwdError } = await supabase.auth.updateUser({ password: newPassword })
+      
+      if (!pwdError) {
         setNewPassword('')
         setConfirmPassword('')
         setMsg({ text: 'تم تغيير كلمة المرور بنجاح ✅', type: 'success' })
         setTimeout(() => setMsg({ text: '', type: '' }), 3000)
+      } else {
+        throw pwdError
       }
     } catch (err) {
-      setMsg({ text: 'فشل في تغيير كلمة المرور', type: 'error' })
+      console.error('Password change error:', err)
+      setMsg({ text: 'فشل في تغيير كلمة المرور: ' + err.message, type: 'error' })
     }
   }
 
